@@ -185,6 +185,8 @@ class FunCapHook(DBG_Hooks):
         '''
         if self.out != None:
             self.out.close()
+        if self.strings_out != None:
+            self.strings_out.close()
         self.unhook()
 
         print "FunCap is OFF"
@@ -840,11 +842,14 @@ class FunCapHook(DBG_Hooks):
         try_ascii = raw_data[:maxlen]
 
         data = raw_data[:maxlen]
+        to_strings_file = None
 
         data_string = self.get_ascii_string(try_ascii)
+        to_strings_file = data_string
 
         if not data_string:
             data_string = self.get_unicode_string(try_unicode)
+            to_strings_file = data_string
 
         if not data_string and self.hexdump:
             data_string = self.hex_dump(data)
@@ -852,10 +857,15 @@ class FunCapHook(DBG_Hooks):
         if not data_string:
             data_string = self.get_printable_string(data, print_dots)
 
+
         # shouldn't have been here but the idea of string dumping came out to me later on
         # TODO: re-implement. We could also take much longer strings
         if self.strings_file:
-            self.strings_out.write(self.get_printable_string(raw_data, False) + "\n")
+            # that seems not to work very well
+            #self.strings_out.write(self.get_printable_string(raw_data, False) + "\n")
+            if not to_strings_file:
+                to_strings_file = self.get_printable_string(raw_data, False)
+            self.strings_out.write(to_strings_file + "\n")
             self.strings_out.flush()
 
         return data_string
@@ -1014,6 +1024,9 @@ class FunCapHook(DBG_Hooks):
         '''
         Called when breakpoint hit on a call instruction.
         '''
+
+        #print "in handle_call()"
+
         if self.current_caller: # delayed_caller: needed if breakpoint hits after signle step request
             self.delayed_caller = { 'type': 'call', 'addr' : ea, 'ctx' : self.get_context(ea=ea, depth=0) }
         else:
@@ -1333,6 +1346,7 @@ class FunCapHook(DBG_Hooks):
         Standard callback routine for stepping into.
         '''
         # if we are currently bouncing off a stub, bounce one step further
+
         ea = self.get_ip()
 
         refresh_debugger_memory()
@@ -1538,8 +1552,8 @@ class AMD64CapHook(FunCapHook):
     def __init__(self, **kwargs):
         self.arch = 'amd64'
         self.bits = 64
-        self.CMT_CALL_CTX = [re.compile('^RDI'), re.compile('^RSI'), re.compile('^RDX'), re.compile('^RCX')] # we are capturing 4 args, but it can be extended
-        self.CMT_RET_SAVED_CTX = [re.compile('^RDI'), re.compile('^RSI'), re.compile('^RDX'), re.compile('^RCX'), re.compile('^arg')]
+        self.CMT_CALL_CTX = [re.compile('^RCX'), re.compile('^RDX'), re.compile('^R8'), re.compile('^R9')] # we are capturing 4 args, but it can be extended
+        self.CMT_RET_SAVED_CTX = [re.compile('^RCX'), re.compile('^RDX'), re.compile('^R8'), re.compile('^R9'), re.compile('^arg')]
         self.CMT_RET_CTX = [re.compile('^RAX')]
         FunCapHook.__init__(self, **kwargs)
 
